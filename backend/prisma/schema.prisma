@@ -12,44 +12,54 @@ enum UserRole {
   Employee
 }
 
-model Role {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        UserRole @unique
-  description String?  @db.VarChar(255)
-  createdAt   DateTime @default(now()) @db.Timestamp
-  updatedAt   DateTime @updatedAt @db.Timestamp
+enum DocumentStatus {
+  Pending
+  Processing
+  Completed
+  Failed
+}
 
-  users       User[]
+model Role {
+  id                  String               @id @default(uuid()) @db.Uuid
+  name                UserRole             @unique
+  description         String?              @db.VarChar(255)
+  createdAt           DateTime             @default(now()) @db.Timestamp
+  updatedAt           DateTime             @updatedAt @db.Timestamp
+
+  users               User[]
+  documentPermissions DocumentPermission[]
 
   @@map("roles")
 }
 
 model Department {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique @db.VarChar(100)
-  description String?  @db.VarChar(255)
-  createdAt   DateTime @default(now()) @db.Timestamp
-  updatedAt   DateTime @updatedAt @db.Timestamp
+  id                  String               @id @default(uuid()) @db.Uuid
+  name                String               @unique @db.VarChar(100)
+  description         String?              @db.VarChar(255)
+  createdAt           DateTime             @default(now()) @db.Timestamp
+  updatedAt           DateTime             @updatedAt @db.Timestamp
 
-  users       User[]
+  users               User[]
+  documentPermissions DocumentPermission[]
 
   @@map("departments")
 }
 
 model User {
-  id           String         @id @default(uuid()) @db.Uuid
-  email        String         @unique @db.VarChar(255)
-  passwordHash String         @db.VarChar(255)
-  firstName    String         @db.VarChar(100)
-  lastName     String         @db.VarChar(100)
-  roleId       String         @db.Uuid
-  departmentId String         @db.Uuid
-  createdAt    DateTime       @default(now()) @db.Timestamp
-  updatedAt    DateTime       @updatedAt @db.Timestamp
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique @db.VarChar(255)
+  passwordHash  String         @db.VarChar(255)
+  firstName     String         @db.VarChar(100)
+  lastName      String         @db.VarChar(100)
+  roleId        String         @db.Uuid
+  departmentId  String         @db.Uuid
+  createdAt     DateTime       @default(now()) @db.Timestamp
+  updatedAt     DateTime       @updatedAt @db.Timestamp
 
-  role         Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  department   Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  role          Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  department    Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   refreshTokens RefreshToken[]
+  documents     Document[]
 
   @@index([departmentId])
   @@index([roleId])
@@ -68,4 +78,43 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model Document {
+  id           String         @id @default(uuid()) @db.Uuid
+  filename     String         @db.VarChar(512)
+  uploadDate   DateTime       @default(now()) @db.Timestamp
+  uploadedById String         @db.Uuid
+  tags         String[]       @db.VarChar(100)
+  documentType String         @db.VarChar(50)
+  status       DocumentStatus @default(Pending)
+  contentHash  String         @unique @db.VarChar(64)
+  fileSize     Int            @db.Integer
+  filePath     String         @db.VarChar(512)
+  createdAt    DateTime       @default(now()) @db.Timestamp
+  updatedAt    DateTime       @updatedAt @db.Timestamp
+
+  uploadedBy   User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  permissions  DocumentPermission[]
+
+  @@index([status])
+  @@index([uploadedById])
+  @@map("documents")
+}
+
+model DocumentPermission {
+  id           String      @id @default(uuid()) @db.Uuid
+  documentId   String      @db.Uuid
+  roleId       String?     @db.Uuid
+  departmentId String?     @db.Uuid
+  createdAt    DateTime    @default(now()) @db.Timestamp
+
+  document     Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  role         Role?       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([roleId])
+  @@index([departmentId])
+  @@map("document_permissions")
 }
