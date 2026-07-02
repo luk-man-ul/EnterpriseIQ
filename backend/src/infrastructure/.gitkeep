@@ -1,0 +1,2 @@
+# Infrastructure directory
+# Used for external systems adapters, such as Prisma database adapters or local storage.

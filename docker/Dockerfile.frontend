@@ -1,0 +1,32 @@
+# Stage 1: Build
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/tsconfig*.json ./
+COPY frontend/next.config*.ts ./
+COPY frontend/eslint.config*.mjs ./
+COPY frontend/postcss.config*.mjs ./
+COPY frontend/src ./src
+
+RUN npm run build
+
+# Stage 2: Runtime
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/.next ./.next
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+EXPOSE 3000
+
+CMD ["npx", "next", "start"]

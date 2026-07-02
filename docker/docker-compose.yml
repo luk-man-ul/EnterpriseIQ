@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: enterpriseiq-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: enterpriseiq
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - enterpriseiq_network
+
+  backend:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.backend
+    container_name: enterpriseiq-backend
+    ports:
+      - "3001:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/enterpriseiq?schema=public
+    depends_on:
+      - postgres
+    networks:
+      - enterpriseiq_network
+
+  frontend:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.frontend
+    container_name: enterpriseiq-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    depends_on:
+      - backend
+    networks:
+      - enterpriseiq_network
+
+volumes:
+  postgres_data:
+
+networks:
+  enterpriseiq_network:
+    driver: bridge

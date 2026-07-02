@@ -1,0 +1,2 @@
+# Common directory
+# Used for shared guards, interceptors, filters, pipes, and middleware.

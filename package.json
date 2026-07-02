@@ -1,0 +1,8 @@
+{
+  "name": "enterprise-iq",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
+}
