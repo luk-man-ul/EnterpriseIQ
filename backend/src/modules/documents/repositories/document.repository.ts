@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Document, Prisma } from '@prisma/client';
+import { Document, DocumentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { IDocumentRepository } from '../domain/interfaces/document-repository.interface';
 
@@ -84,6 +84,13 @@ export class DocumentRepository implements IDocumentRepository {
   async delete(id: string): Promise<void> {
     await this.prisma.document.delete({
       where: { id },
+    });
+  }
+
+  async updateStatus(id: string, status: DocumentStatus): Promise<Document> {
+    return this.prisma.document.update({
+      where: { id },
+      data: { status },
     });
   }
 }

@@ -46,7 +46,6 @@ export class LocalStorageProvider implements IStorageProvider {
   async deleteFile(fileIdentifier: string): Promise<void> {
     const fullPath = path.resolve(process.cwd(), fileIdentifier);
 
-    // Prevent directory traversal escape
     if (!fullPath.startsWith(this.uploadDir)) {
       throw new Error(
         'Directory traversal attempt blocked in storage deletion.',
@@ -75,5 +74,15 @@ export class LocalStorageProvider implements IStorageProvider {
     } catch {
       return false;
     }
+  }
+
+  async getFileBuffer(fileIdentifier: string): Promise<Buffer> {
+    const fullPath = path.resolve(process.cwd(), fileIdentifier);
+
+    if (!fullPath.startsWith(this.uploadDir)) {
+      throw new Error('Directory traversal attempt blocked in storage read.');
+    }
+
+    return fs.readFile(fullPath);
   }
 }

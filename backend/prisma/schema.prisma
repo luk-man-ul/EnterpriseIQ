@@ -96,6 +96,7 @@ model Document {
 
   uploadedBy   User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   permissions  DocumentPermission[]
+  chunks       DocumentChunk[]
 
   @@index([status])
   @@index([uploadedById])
@@ -117,4 +118,22 @@ model DocumentPermission {
   @@index([roleId])
   @@index([departmentId])
   @@map("document_permissions")
+}
+
+model DocumentChunk {
+  id             String   @id @default(uuid()) @db.Uuid
+  documentId     String   @db.Uuid
+  content        String   @db.Text
+  embedding      Unsupported("vector(768)")
+  chunkIndex     Int      @db.Integer
+  tokenCount     Int      @db.Integer
+  characterCount Int      @db.Integer
+  metadata       Json     @db.JsonB
+  createdAt      DateTime @default(now()) @db.Timestamp
+
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([chunkIndex])
+  @@map("document_chunks")
 }

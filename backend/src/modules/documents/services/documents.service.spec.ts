@@ -1,7 +1,8 @@
-/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DocumentStatus, Document } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DocumentsService } from './documents.service';
 import { DocumentValidationService } from './document-validation.service';
 import {
@@ -17,6 +18,7 @@ describe('DocumentsService', () => {
   let service: DocumentsService;
   let repositoryMock: jest.Mocked<IDocumentRepository>;
   let storageMock: jest.Mocked<IStorageProvider>;
+  let eventEmitterMock: any;
 
   beforeEach(async () => {
     repositoryMock = {
@@ -25,12 +27,18 @@ describe('DocumentsService', () => {
       createWithPermission: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
+      updateStatus: jest.fn(),
     };
 
     storageMock = {
       saveFile: jest.fn(),
       deleteFile: jest.fn(),
       exists: jest.fn(),
+      getFileBuffer: jest.fn(),
+    };
+
+    eventEmitterMock = {
+      emit: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -44,6 +52,10 @@ describe('DocumentsService', () => {
         {
           provide: STORAGE_PROVIDER_TOKEN,
           useValue: storageMock,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: eventEmitterMock,
         },
       ],
     }).compile();
@@ -117,6 +129,9 @@ describe('DocumentsService', () => {
         }),
         { departmentId: 'dept-id' },
       );
+      expect(eventEmitterMock.emit).toHaveBeenCalledWith('document.uploaded', {
+        documentId: 'doc-uuid',
+      });
     });
 
     it('should rollback file upload on storage if database write throws an error', async () => {

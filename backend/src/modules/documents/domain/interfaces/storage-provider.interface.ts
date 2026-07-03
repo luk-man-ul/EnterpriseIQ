@@ -25,4 +25,10 @@ export interface IStorageProvider {
    * @param fileIdentifier The storage path, URL, or identifier.
    */
   exists(fileIdentifier: string): Promise<boolean>;
+
+  /**
+   * Retrieves a file's binary buffer from the storage medium.
+   * @param fileIdentifier The storage path, URL, or identifier.
+   */
+  getFileBuffer(fileIdentifier: string): Promise<Buffer>;
 }

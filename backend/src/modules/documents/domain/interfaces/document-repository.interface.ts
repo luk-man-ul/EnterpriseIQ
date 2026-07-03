@@ -1,4 +1,4 @@
-import { Document } from '@prisma/client';
+import { Document, DocumentStatus } from '@prisma/client';
 
 export const DOCUMENT_REPOSITORY_TOKEN = 'IDocumentRepository';
 
@@ -19,4 +19,5 @@ export interface IDocumentRepository {
     where?: { departmentId?: string };
   }): Promise<{ documents: Document[]; totalCount: number }>;
   delete(id: string): Promise<void>;
+  updateStatus(id: string, status: DocumentStatus): Promise<Document>;
 }

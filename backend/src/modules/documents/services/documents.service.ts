@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Document, DocumentStatus } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import type { IDocumentRepository } from '../domain/interfaces/document-repository.interface';
@@ -25,6 +26,7 @@ export class DocumentsService {
     @Inject(STORAGE_PROVIDER_TOKEN)
     private readonly storageProvider: IStorageProvider,
     private readonly validationService: DocumentValidationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async upload(
@@ -33,24 +35,19 @@ export class DocumentsService {
     departmentId?: string,
     tags?: string,
   ): Promise<Document> {
-    // 1. Validate file size
     this.validationService.validateSize(file.size);
 
-    // 2. Sanitize original filename
     const sanitizedFilename = this.validationService.sanitizeFilename(
       file.originalname,
     );
 
-    // 3. Binary signature validation (Authoritative type check)
     const fileType = this.validationService.validateMagicBytes(
       file.buffer,
       sanitizedFilename,
     );
 
-    // 4. Calculate SHA-256 hash
     const hash = this.validationService.calculateHash(file.buffer);
 
-    // 5. Duplicate detection BEFORE saving to disk
     const existingDocument = await this.documentRepository.findByHash(hash);
     if (existingDocument) {
       throw new ConflictException(
@@ -58,17 +55,14 @@ export class DocumentsService {
       );
     }
 
-    // 6. Generate secure key for storage
     const fileKey = `${crypto.randomUUID()}${path.extname(sanitizedFilename)}`;
 
-    // 7. Save file to storage provider
     const filePath = await this.storageProvider.saveFile(
       fileKey,
       file.buffer,
       file.mimetype,
     );
 
-    // 8. Atomic Database writes inside repository
     const tagsArray = tags
       ? tags
           .split(',')
@@ -96,13 +90,16 @@ export class DocumentsService {
       this.logger.log(
         `Successfully uploaded and registered document: ${document.id}`,
       );
+
+      // Emit background ingestion event asynchronously
+      this.eventEmitter.emit('document.uploaded', { documentId: document.id });
+
       return document;
     } catch (err) {
       this.logger.error(
         `Failed to persist document to database. Rolling back stored file.`,
         err,
       );
-      // Rollback saved file from storage
       try {
         await this.storageProvider.deleteFile(filePath);
       } catch (rollbackErr) {
@@ -155,10 +152,8 @@ export class DocumentsService {
       throw new NotFoundException(`Document with ID ${id} not found.`);
     }
 
-    // 1. Delete database record (associated permissions will cascade delete)
     await this.documentRepository.delete(id);
 
-    // 2. Delete file from physical storage medium
     try {
       await this.storageProvider.deleteFile(document.filePath);
     } catch (err) {

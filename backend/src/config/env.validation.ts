@@ -43,6 +43,10 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN = '7d';
+
+  @IsString()
+  @IsOptional()
+  GEMINI_API_KEY?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

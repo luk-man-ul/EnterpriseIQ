@@ -13,6 +13,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @Inject(USER_REPOSITORY_TOKEN)
     private readonly userRepository: UserRepo.IUserRepository,
   ) {
+    // TEMP DEBUG
+    console.log('JWT_SECRET =', configService.get<string>('JWT_SECRET'));
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -21,6 +23,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: IJwtPayload) {
+    // TEMP DEBUG
+    console.log('JWT PAYLOAD RECEIVED:', payload);
     const user = await this.userRepository.findById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('User not found.');
