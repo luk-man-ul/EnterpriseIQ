@@ -26,7 +26,7 @@ export class PdfParserService implements IDocumentParser {
           lastY = item.transform[5];
         }
 
-        const pageNumber = pages.length + 1;
+        const pageNumber = pageData.pageNumber;
         pages.push({
           content: text.trim(),
           pageNumber,

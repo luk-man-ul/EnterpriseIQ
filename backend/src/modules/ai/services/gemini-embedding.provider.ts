@@ -64,13 +64,27 @@ export class GeminiEmbeddingProvider implements IEmbeddingProvider {
         throw err;
       }
       const errMessage = String(err).toLowerCase();
+      let structuredMessage = '';
+      if (err instanceof Error) {
+        structuredMessage = err.message.toLowerCase();
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        const errWithMsg = err as Record<string, unknown>;
+        structuredMessage = String(errWithMsg.message).toLowerCase();
+      }
+
       const isTransient =
         errMessage.includes('429') ||
         errMessage.includes('quota') ||
         errMessage.includes('503') ||
         errMessage.includes('500') ||
         errMessage.includes('timeout') ||
-        errMessage.includes('fetch');
+        errMessage.includes('fetch') ||
+        structuredMessage.includes('429') ||
+        structuredMessage.includes('quota') ||
+        structuredMessage.includes('503') ||
+        structuredMessage.includes('500') ||
+        structuredMessage.includes('timeout') ||
+        structuredMessage.includes('fetch');
 
       if (!isTransient) {
         throw err;

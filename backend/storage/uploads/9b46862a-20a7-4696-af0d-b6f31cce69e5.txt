@@ -1,0 +1,11 @@
+EnterpriseIQ is an Enterprise AI platform.
+
+It performs document ingestion.
+
+Documents are chunked.
+
+Embeddings are generated using Gemini.
+
+Vectors are stored in PostgreSQL.
+
+This is a manual validation test.
