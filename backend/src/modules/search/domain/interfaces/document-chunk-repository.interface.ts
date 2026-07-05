@@ -7,7 +7,27 @@ export interface DocumentChunkSaveInput {
   chunkIndex: number;
   tokenCount: number;
   characterCount: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
+}
+
+export interface SearchChunksInput {
+  queryEmbedding: number[];
+  limit: number;
+  userRoleId: string;
+  userDepartmentId: string;
+  roleName: string;
+  threshold?: number;
+}
+
+export interface SearchResultItem {
+  id: string;
+  documentId: string;
+  documentName: string;
+  pageNumber: number;
+  chunkIndex: number;
+  similarity: number;
+  content: string;
+  metadata: Record<string, unknown>;
 }
 
 export interface IDocumentChunkRepository {
@@ -23,4 +43,10 @@ export interface IDocumentChunkRepository {
    * @param documentId Target parent document UUID.
    */
   deleteByDocumentId(documentId: string): Promise<void>;
+
+  /**
+   * Performs semantic similarity search on document chunks using pgvector with security filters.
+   * @param input Parameters including query embedding, user credentials, limit, and optional threshold.
+   */
+  searchChunks(input: SearchChunksInput): Promise<SearchResultItem[]>;
 }
