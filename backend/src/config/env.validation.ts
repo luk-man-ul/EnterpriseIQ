@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsNotEmpty,
   validateSync,
 } from 'class-validator';
 
@@ -47,6 +48,10 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   GEMINI_API_KEY?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GEMINI_MODEL!: string;
 }
 
 export function validate(config: Record<string, unknown>) {
