@@ -60,6 +60,7 @@ model User {
   department    Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   refreshTokens RefreshToken[]
   documents     Document[]
+  chatSessions  ChatSession[]
 
   @@index([departmentId])
   @@index([roleId])
@@ -136,4 +137,38 @@ model DocumentChunk {
   @@index([documentId])
   @@index([chunkIndex])
   @@map("document_chunks")
+}
+
+enum ChatMessageRole {
+  User
+  Assistant
+}
+
+model ChatSession {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  title     String        @db.VarChar(255)
+  createdAt DateTime      @default(now()) @db.Timestamp
+  updatedAt DateTime      @updatedAt @db.Timestamp
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id            String          @id @default(uuid()) @db.Uuid
+  chatSessionId String          @db.Uuid
+  role          ChatMessageRole
+  content       String          @db.Text
+  citations     Json            @default("[]") @db.JsonB
+  createdAt     DateTime        @default(now()) @db.Timestamp
+
+  session       ChatSession     @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+
+  @@index([chatSessionId])
+  @@index([createdAt])
+  @@map("chat_messages")
 }
