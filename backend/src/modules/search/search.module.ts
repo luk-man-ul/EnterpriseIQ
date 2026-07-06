@@ -16,7 +16,7 @@ import { SearchController } from './controllers/search.controller';
     },
     SearchService,
   ],
-  exports: [DOCUMENT_CHUNK_REPOSITORY_TOKEN],
+  exports: [DOCUMENT_CHUNK_REPOSITORY_TOKEN, SearchService],
 })
 export class SearchModule {}
 export { DOCUMENT_CHUNK_REPOSITORY_TOKEN };
