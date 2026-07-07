@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, EmbedContentRequest } from '@google/generative-ai';
 import { IEmbeddingProvider } from '../domain/interfaces/embedding-provider.interface';
-import { GEMINI_EMBEDDING_MODEL } from '../constants/ai.constants';
+import {
+  GEMINI_EMBEDDING_MODEL,
+  EMBEDDING_DIMENSION,
+} from '../constants/ai.constants';
 
 @Injectable()
 export class GeminiEmbeddingProvider implements IEmbeddingProvider {
@@ -19,13 +22,32 @@ export class GeminiEmbeddingProvider implements IEmbeddingProvider {
     this.genAI = new GoogleGenerativeAI(apiKey || 'dummy-key');
   }
 
+  private normalizeEmbedding(vector: number[]): number[] {
+    const sumSquares = vector.reduce((sum, val) => sum + val * val, 0);
+    const magnitude = Math.sqrt(sumSquares);
+    if (magnitude === 0) {
+      return [...vector];
+    }
+    return vector.map((val) => val / magnitude);
+  }
+
   async generateEmbedding(text: string): Promise<number[]> {
     try {
       const model = this.genAI.getGenerativeModel({
         model: GEMINI_EMBEDDING_MODEL,
       });
-      const result = await this.embedWithRetry(() => model.embedContent(text));
-      return result.embedding.values;
+      const req: EmbedContentRequest & { outputDimensionality?: number } = {
+        content: { role: 'user', parts: [{ text }] },
+        outputDimensionality: EMBEDDING_DIMENSION,
+      };
+      const result = await this.embedWithRetry(() => model.embedContent(req));
+      const values = result.embedding.values;
+      if (!values || values.length !== EMBEDDING_DIMENSION) {
+        throw new Error(
+          `Unexpected embedding dimensionality: expected ${EMBEDDING_DIMENSION}, got ${values ? values.length : 0}.`,
+        );
+      }
+      return this.normalizeEmbedding(values);
     } catch (err) {
       this.logger.error(`Failed to generate embedding for text snippet`, err);
       throw err;
@@ -38,14 +60,26 @@ export class GeminiEmbeddingProvider implements IEmbeddingProvider {
       const model = this.genAI.getGenerativeModel({
         model: GEMINI_EMBEDDING_MODEL,
       });
+      const requests: Array<
+        EmbedContentRequest & { outputDimensionality?: number }
+      > = texts.map((t) => ({
+        content: { role: 'user', parts: [{ text: t }] },
+        outputDimensionality: EMBEDDING_DIMENSION,
+      }));
       const result = await this.embedWithRetry(() =>
         model.batchEmbedContents({
-          requests: texts.map((t) => ({
-            content: { role: 'user', parts: [{ text: t }] },
-          })),
+          requests,
         }),
       );
-      return result.embeddings.map((e) => e.values);
+      return result.embeddings.map((e) => {
+        const values = e.values;
+        if (!values || values.length !== EMBEDDING_DIMENSION) {
+          throw new Error(
+            `Unexpected embedding dimensionality: expected ${EMBEDDING_DIMENSION}, got ${values ? values.length : 0}.`,
+          );
+        }
+        return this.normalizeEmbedding(values);
+      });
     } catch (err) {
       this.logger.error(`Failed to generate batch embeddings`, err);
       throw err;
@@ -63,28 +97,55 @@ export class GeminiEmbeddingProvider implements IEmbeddingProvider {
       if (retries <= 0) {
         throw err;
       }
-      const errMessage = String(err).toLowerCase();
-      let structuredMessage = '';
-      if (err instanceof Error) {
-        structuredMessage = err.message.toLowerCase();
-      } else if (err && typeof err === 'object' && 'message' in err) {
-        const errWithMsg = err as Record<string, unknown>;
-        structuredMessage = String(errWithMsg.message).toLowerCase();
+
+      let isTransient = false;
+      let status: number | undefined;
+
+      if (err && typeof err === 'object') {
+        const errObj = err as Record<string, unknown>;
+        if (typeof errObj.status === 'number') {
+          status = errObj.status;
+        } else if (
+          errObj.cause &&
+          typeof errObj.cause === 'object' &&
+          typeof (errObj.cause as Record<string, unknown>).status === 'number'
+        ) {
+          status = (errObj.cause as Record<string, unknown>).status as number;
+        }
       }
 
-      const isTransient =
-        errMessage.includes('429') ||
-        errMessage.includes('quota') ||
-        errMessage.includes('503') ||
-        errMessage.includes('500') ||
-        errMessage.includes('timeout') ||
-        errMessage.includes('fetch') ||
-        structuredMessage.includes('429') ||
-        structuredMessage.includes('quota') ||
-        structuredMessage.includes('503') ||
-        structuredMessage.includes('500') ||
-        structuredMessage.includes('timeout') ||
-        structuredMessage.includes('fetch');
+      if (status !== undefined) {
+        // Status-first logic: 408, 429, and 5xx are transient
+        isTransient =
+          status === 408 || status === 429 || (status >= 500 && status < 600);
+      } else {
+        // Status-less fallback using structured system codes and cause parameters
+        let code = '';
+        let errno = '';
+
+        if (err && typeof err === 'object') {
+          const errObj = err as Record<string, unknown>;
+          if (typeof errObj.code === 'string') code = errObj.code;
+          if (typeof errObj.errno === 'string') errno = errObj.errno;
+
+          if (errObj.cause && typeof errObj.cause === 'object') {
+            const causeObj = errObj.cause as Record<string, unknown>;
+            if (typeof causeObj.code === 'string') code = causeObj.code;
+            if (typeof causeObj.errno === 'string') errno = causeObj.errno;
+          }
+        }
+
+        const transientCodes = new Set([
+          'ETIMEDOUT',
+          'ECONNRESET',
+          'EAI_AGAIN',
+          'UND_ERR_CONNECT_TIMEOUT',
+          'UND_ERR_HEADERS_TIMEOUT',
+          'UND_ERR_SOCKET',
+        ]);
+
+        isTransient = transientCodes.has(code) || transientCodes.has(errno);
+      }
 
       if (!isTransient) {
         throw err;

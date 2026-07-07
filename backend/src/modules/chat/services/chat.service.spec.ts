@@ -693,7 +693,12 @@ describe('ChatService - Foundation', () => {
       );
 
       const expectedPrompt =
-        "System Instructions:\nYou are EnterpriseIQ, a helpful corporate assistant. Use the provided context to answer the user's query.\n\n" +
+        "System Instructions:\nYou are EnterpriseIQ, a helpful corporate assistant. Use the provided context to answer the user's query.\n" +
+        'Strict citation rules:\n' +
+        '1. Every statement in your response must reference the context using [DOC-X] notations matching the source index.\n' +
+        '2. Only use [DOC-X] identifiers that are present in the provided context.\n' +
+        '3. Never cite a document that is absent from the context.\n' +
+        '4. Format your response in markdown.\n\n' +
         'Provided Context:\n' +
         'Prior Chat History:\n' +
         'Current User Question:\nUser: ' +
@@ -702,6 +707,47 @@ describe('ChatService - Foundation', () => {
 
       expect(result.finalPrompt).toBe(expectedPrompt);
       expect(tokenizer.encode(result.finalPrompt).length).toBeLessThan(5500);
+    });
+
+    it('1b. Prompt contains explicit citation-output instructions and rules', async () => {
+      mockPrisma.chatSession.findFirst.mockResolvedValue({ id: 's-id' });
+      mockPrisma.chatMessage.create.mockResolvedValue({ id: 'msg-uuid' });
+      mockPrisma.chatMessage.findMany.mockResolvedValue([]);
+
+      const chunkText = 'Some context details';
+      const results: IChatSearchResultItem[] = [
+        {
+          documentId: 'doc-uuid-1',
+          documentName: 'doc1.pdf',
+          pageNumber: 5,
+          content: chunkText,
+        },
+      ];
+      mockSearchService.search.mockResolvedValue({ query: 'Hello', results });
+
+      const result = await service.executeFoundation(
+        { message: 'Hello', chatSessionId: 's-id' },
+        mockUser,
+      );
+
+      // A. Grounded prompt contains explicit citation-output instructions.
+      expect(result.finalPrompt).toContain('Strict citation rules:');
+
+      // B. Prompt instructs model to use exact [DOC-X] identifiers from context.
+      expect(result.finalPrompt).toContain(
+        'Every statement in your response must reference the context using [DOC-X] notations matching the source index.',
+      );
+      expect(result.finalPrompt).toContain(
+        'Only use [DOC-X] identifiers that are present in the provided context.',
+      );
+
+      // C. Prompt instructs model not to invent/cite sources absent from context.
+      expect(result.finalPrompt).toContain(
+        'Never cite a document that is absent from the context.',
+      );
+
+      // Verify the context chunk DOC-1 marker is formatted and included
+      expect(result.finalPrompt).toContain('[DOC-1]');
     });
 
     it('2. Chunk blocks are added, and their exact token counts are evaluated against the remaining budget', async () => {

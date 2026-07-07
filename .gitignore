@@ -52,3 +52,7 @@ Thumbs.db
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
+
+# Runtime document uploads
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep

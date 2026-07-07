@@ -1,12 +1,17 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { DocumentChunkRepository } from './document-chunk.repository';
+import { DocumentChunkSaveInput } from '../domain/interfaces/document-chunk-repository.interface';
 
 describe('DocumentChunkRepository', () => {
   let repository: DocumentChunkRepository;
-  let prismaServiceMock: any;
+  let prismaServiceMock: {
+    $queryRaw: jest.Mock;
+    $executeRaw: jest.Mock;
+    $transaction: jest.Mock;
+  };
 
   beforeEach(async () => {
     prismaServiceMock = {
@@ -29,7 +34,7 @@ describe('DocumentChunkRepository', () => {
   });
 
   describe('searchChunks', () => {
-    const dummyEmbedding = new Array(768).fill(0.1);
+    const dummyEmbedding: number[] = new Array<number>(768).fill(0.1);
 
     it('should throw an error if query embedding length is not exactly 768 dimensions', async () => {
       const invalidEmbedding = [0.1, 0.2];
@@ -56,7 +61,10 @@ describe('DocumentChunkRepository', () => {
       });
 
       expect(prismaServiceMock.$queryRaw).toHaveBeenCalled();
-      const mockCalls = prismaServiceMock.$queryRaw.mock.calls[0];
+      const mockCalls = prismaServiceMock.$queryRaw.mock.calls[0] as [
+        string[],
+        ...unknown[],
+      ];
       const sqlText = mockCalls[0].join(' ');
       const sqlValues = mockCalls.slice(1);
 
@@ -88,7 +96,10 @@ describe('DocumentChunkRepository', () => {
       });
 
       expect(prismaServiceMock.$queryRaw).toHaveBeenCalled();
-      const mockCalls = prismaServiceMock.$queryRaw.mock.calls[0];
+      const mockCalls = prismaServiceMock.$queryRaw.mock.calls[0] as [
+        string[],
+        ...unknown[],
+      ];
       const sqlText = mockCalls[0].join(' ');
       const sqlValues = mockCalls.slice(1);
 
@@ -114,12 +125,138 @@ describe('DocumentChunkRepository', () => {
         roleName: UserRole.Employee,
       });
 
-      const mockCalls = prismaServiceMock.$queryRaw.mock.calls[0];
+      const mockCalls = prismaServiceMock.$queryRaw.mock.calls[0] as [
+        string[],
+        ...unknown[],
+      ];
       const sqlText = mockCalls[0].join(' ');
 
       // Verify that we do not perform a direct JOIN on document_permissions
       expect(sqlText).toContain('EXISTS');
       expect(sqlText).not.toContain('JOIN "document_permissions"');
+    });
+  });
+
+  describe('saveChunks', () => {
+    const validEmbedding: number[] = new Array<number>(768).fill(0.15);
+
+    it('should return early without opening a transaction if input array is empty', async () => {
+      await repository.saveChunks([]);
+      expect(prismaServiceMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should execute raw insert inside transaction with serialized vector string', async () => {
+      const mockChunk: DocumentChunkSaveInput = {
+        documentId: 'doc-uuid-123',
+        content: 'Sample text chunk',
+        embedding: validEmbedding,
+        chunkIndex: 0,
+        tokenCount: 10,
+        characterCount: 50,
+        metadata: { pageNumber: 1 },
+      };
+
+      await repository.saveChunks([mockChunk]);
+
+      expect(prismaServiceMock.$transaction).toHaveBeenCalled();
+      expect(prismaServiceMock.$executeRaw).toHaveBeenCalled();
+
+      const executeCalls = prismaServiceMock.$executeRaw.mock.calls[0] as [
+        string[],
+        ...unknown[],
+      ];
+      const sqlText = executeCalls[0].join(' ');
+      const sqlValues = executeCalls.slice(1);
+
+      expect(sqlText).toContain('INSERT INTO "document_chunks"');
+      expect(sqlText).toContain('::vector');
+      expect(sqlText).toContain('::jsonb');
+
+      const expectedVectorStr = `[${validEmbedding.join(',')}]`;
+      expect(sqlValues).toContain(expectedVectorStr);
+      expect(sqlValues).not.toContain(validEmbedding);
+    });
+
+    it('should throw an error and fail transaction if embedding contains wrong dimension', async () => {
+      const invalidEmbedding = [0.1, 0.2];
+      const mockChunk: DocumentChunkSaveInput = {
+        documentId: 'doc-uuid-123',
+        content: 'Sample text chunk',
+        embedding: invalidEmbedding,
+        chunkIndex: 0,
+        tokenCount: 10,
+        characterCount: 50,
+        metadata: { pageNumber: 1 },
+      };
+
+      await expect(repository.saveChunks([mockChunk])).rejects.toThrow(
+        /Chunk embedding must contain exactly 768 dimensions \(got 2\)/,
+      );
+
+      expect(prismaServiceMock.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it('should throw an error and fail transaction if embedding contains NaN', async () => {
+      const nanEmbedding: number[] = new Array<number>(768).fill(0.1);
+      nanEmbedding[5] = NaN;
+
+      const mockChunk: DocumentChunkSaveInput = {
+        documentId: 'doc-uuid-123',
+        content: 'Sample text chunk',
+        embedding: nanEmbedding,
+        chunkIndex: 0,
+        tokenCount: 10,
+        characterCount: 50,
+        metadata: { pageNumber: 1 },
+      };
+
+      await expect(repository.saveChunks([mockChunk])).rejects.toThrow(
+        /Chunk embedding elements must be finite numbers \(encountered invalid value: NaN at index 5\)/,
+      );
+
+      expect(prismaServiceMock.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it('should throw an error and fail transaction if embedding contains Infinity', async () => {
+      const infEmbedding: number[] = new Array<number>(768).fill(0.15);
+      infEmbedding[10] = Infinity;
+
+      const mockChunk: DocumentChunkSaveInput = {
+        documentId: 'doc-uuid-123',
+        content: 'Sample text chunk',
+        embedding: infEmbedding,
+        chunkIndex: 0,
+        tokenCount: 10,
+        characterCount: 50,
+        metadata: { pageNumber: 1 },
+      };
+
+      await expect(repository.saveChunks([mockChunk])).rejects.toThrow(
+        /Chunk embedding elements must be finite numbers \(encountered invalid value: Infinity at index 10\)/,
+      );
+
+      expect(prismaServiceMock.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it('should throw an error and fail transaction if embedding contains -Infinity', async () => {
+      const negInfEmbedding: number[] = new Array<number>(768).fill(0.2);
+      negInfEmbedding[20] = -Infinity;
+
+      const mockChunk: DocumentChunkSaveInput = {
+        documentId: 'doc-uuid-123',
+        content: 'Sample text chunk',
+        embedding: negInfEmbedding,
+        chunkIndex: 0,
+        tokenCount: 10,
+        characterCount: 50,
+        metadata: { pageNumber: 1 },
+      };
+
+      await expect(repository.saveChunks([mockChunk])).rejects.toThrow(
+        /Chunk embedding elements must be finite numbers \(encountered invalid value: -Infinity at index 20\)/,
+      );
+
+      expect(prismaServiceMock.$executeRaw).not.toHaveBeenCalled();
     });
   });
 });

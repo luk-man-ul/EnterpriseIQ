@@ -286,7 +286,12 @@ export class ChatService {
     results: IChatSearchResultItem[],
   ): { admittedChunks: IChatSearchResultItem[]; finalPrompt: string } {
     const SYSTEM_INSTRUCTIONS =
-      "System Instructions:\nYou are EnterpriseIQ, a helpful corporate assistant. Use the provided context to answer the user's query.\n\n";
+      "System Instructions:\nYou are EnterpriseIQ, a helpful corporate assistant. Use the provided context to answer the user's query.\n" +
+      'Strict citation rules:\n' +
+      '1. Every statement in your response must reference the context using [DOC-X] notations matching the source index.\n' +
+      '2. Only use [DOC-X] identifiers that are present in the provided context.\n' +
+      '3. Never cite a document that is absent from the context.\n' +
+      '4. Format your response in markdown.\n\n';
     const CONTEXT_HEADER = 'Provided Context:\n';
     const HISTORY_HEADER = 'Prior Chat History:\n';
     const QUESTION_HEADER = 'Current User Question:\nUser: ';

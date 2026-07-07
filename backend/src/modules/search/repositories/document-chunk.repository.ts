@@ -14,12 +14,33 @@ import {
 export class DocumentChunkRepository implements IDocumentChunkRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private serializeVector(embedding: number[], name = 'Embedding'): string {
+    if (embedding.length !== EMBEDDING_DIMENSION) {
+      throw new Error(
+        `${name} must contain exactly ${EMBEDDING_DIMENSION} dimensions (got ${embedding.length}).`,
+      );
+    }
+    for (let i = 0; i < embedding.length; i++) {
+      const val = embedding[i];
+      if (typeof val !== 'number' || !Number.isFinite(val)) {
+        throw new Error(
+          `${name} elements must be finite numbers (encountered invalid value: ${val} at index ${i}).`,
+        );
+      }
+    }
+    return `[${embedding.join(',')}]`;
+  }
+
   async saveChunks(chunks: DocumentChunkSaveInput[]): Promise<void> {
     if (chunks.length === 0) return;
 
     await this.prisma.$transaction(async (tx) => {
       for (const chunk of chunks) {
         const id = crypto.randomUUID();
+        const vectorStr = this.serializeVector(
+          chunk.embedding,
+          'Chunk embedding',
+        );
 
         await tx.$executeRaw`
           INSERT INTO "document_chunks" (
@@ -36,7 +57,7 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
             ${id}::uuid,
             ${chunk.documentId}::uuid,
             ${chunk.content},
-            ${chunk.embedding}::vector,
+            ${vectorStr}::vector,
             ${chunk.chunkIndex},
             ${chunk.tokenCount},
             ${chunk.characterCount},
@@ -65,14 +86,8 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
       threshold = -1.0,
     } = input;
 
-    if (queryEmbedding.length !== EMBEDDING_DIMENSION) {
-      throw new Error(
-        `Query embedding must contain exactly ${EMBEDDING_DIMENSION} dimensions (got ${queryEmbedding.length}).`,
-      );
-    }
-
     const isAdmin = roleName === UserRole.Administrator;
-    const vectorStr = `[${queryEmbedding.join(',')}]`;
+    const vectorStr = this.serializeVector(queryEmbedding, 'Query embedding');
 
     return this.prisma.$queryRaw<SearchResultItem[]>`
       SELECT 

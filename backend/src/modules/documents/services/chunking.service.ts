@@ -12,7 +12,7 @@ export interface TextChunk {
 @Injectable()
 export class ChunkingService {
   private readonly logger = new Logger(ChunkingService.name);
-  // cl100k_base is the standard tokenizer used by text-embedding-004 and modern embeddings
+  // cl100k_base is the standard tokenizer used by gemini-embedding-001 and modern embeddings
   private readonly encoding = getEncoding('cl100k_base');
 
   /**
