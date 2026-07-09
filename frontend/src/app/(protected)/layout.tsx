@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../../hooks/use-auth";
 
 export default function ProtectedLayout({
@@ -57,7 +58,7 @@ export default function ProtectedLayout({
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
-              <a
+              <Link
                 key={link.name}
                 href={link.href}
                 className={`text-xs font-semibold px-4 py-3 rounded-lg border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
@@ -67,7 +68,7 @@ export default function ProtectedLayout({
                 }`}
               >
                 {link.name}
-              </a>
+              </Link>
             );
           })}
         </nav>
