@@ -4,13 +4,15 @@ import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../hooks/use-auth";
+import { AdminCapabilityProvider, useAdminCapability } from "../../providers/admin-capability-provider";
 
-export default function ProtectedLayout({
+function ProtectedLayoutInner({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { status, user, logout, initializationError } = useAuth();
+  const { isAdministrator } = useAdminCapability();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -42,6 +44,10 @@ export default function ProtectedLayout({
     { name: "Chat", href: "/app/chat" },
   ];
 
+  if (isAdministrator) {
+    navLinks.push({ name: "Users", href: "/app/admin/users" });
+  }
+
   const sidebarContent = (
     <div className="flex-1 flex flex-col justify-between p-6 bg-zinc-950 border-r border-zinc-800 text-white font-sans h-full">
       <div className="space-y-8">
@@ -63,7 +69,7 @@ export default function ProtectedLayout({
                 href={link.href}
                 className={`text-xs font-semibold px-4 py-3 rounded-lg border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                   isActive
-                    ? "bg-zinc-900 border-zinc-850 text-white"
+                    ? "bg-zinc-950 bg-zinc-900 border-zinc-850 text-white"
                     : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-900/40"
                 }`}
               >
@@ -148,5 +154,17 @@ export default function ProtectedLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AdminCapabilityProvider>
+      <ProtectedLayoutInner>{children}</ProtectedLayoutInner>
+    </AdminCapabilityProvider>
   );
 }
