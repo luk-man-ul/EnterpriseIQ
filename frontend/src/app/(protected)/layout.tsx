@@ -37,6 +37,8 @@ export default function ProtectedLayout({
 
   const navLinks = [
     { name: "Documents", href: "/app" },
+    { name: "Search", href: "/app/search" },
+    { name: "Chat", href: "/app/chat" },
   ];
 
   const sidebarContent = (
