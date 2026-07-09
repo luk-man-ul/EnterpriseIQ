@@ -20,4 +20,10 @@ export class DepartmentRepository implements IDepartmentRepository {
   ): Promise<Department> {
     return this.prisma.department.create({ data });
   }
+
+  async findAll(): Promise<Department[]> {
+    return this.prisma.department.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
 }

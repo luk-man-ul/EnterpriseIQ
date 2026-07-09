@@ -8,4 +8,5 @@ export interface IDepartmentRepository {
   create(
     data: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>,
   ): Promise<Department>;
+  findAll(): Promise<Department[]>;
 }

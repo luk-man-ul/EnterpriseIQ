@@ -6,6 +6,7 @@ import { DepartmentRepository } from './repositories/department.repository';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { RolesController } from './roles.controller';
+import { DepartmentsController } from './departments.controller';
 import { USER_REPOSITORY_TOKEN } from './domain/interfaces/user-repository.interface';
 import { ROLE_REPOSITORY_TOKEN } from './domain/interfaces/role-repository.interface';
 import { DEPARTMENT_REPOSITORY_TOKEN } from './domain/interfaces/department-repository.interface';
@@ -13,7 +14,7 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [PrismaModule, forwardRef(() => AuthModule)],
-  controllers: [UsersController, RolesController],
+  controllers: [UsersController, RolesController, DepartmentsController],
   providers: [
     {
       provide: USER_REPOSITORY_TOKEN,
