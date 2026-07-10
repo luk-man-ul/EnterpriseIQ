@@ -79,10 +79,19 @@ async function main() {
     );
   }
 
-  const adminEmail = 'admin@enterpriseiq.local';
+  const isProd = process.env.NODE_ENV === 'production';
+  const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || (isProd ? null : 'admin@enterpriseiq.local');
+  const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || (isProd ? null : 'Admin@123456');
+
+  if (!adminEmail || !adminPassword) {
+    throw new Error(
+      'In production environment, DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD environment variables must be explicitly defined.'
+    );
+  }
+
   // Hash the password with 12 rounds of bcrypt
   const saltRounds = 12;
-  const passwordHash = await bcrypt.hash('Admin@123456', saltRounds);
+  const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
 
   await prisma.user.upsert({
     where: { email: adminEmail },

@@ -10,6 +10,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d EnterpriseIQ"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - enterpriseiq_network
 
@@ -22,9 +27,12 @@ services:
       - "3001:3000"
     environment:
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/enterpriseiq?schema=public
+      DATABASE_URL: postgresql://postgres:Lukm4nul_H4k33m@postgres:5432/EnterpriseIQ?schema=public
+    volumes:
+      - backend_uploads:/app/storage/uploads
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - enterpriseiq_network
 
@@ -45,6 +53,7 @@ services:
 
 volumes:
   postgres_data:
+  backend_uploads:
 
 networks:
   enterpriseiq_network:
