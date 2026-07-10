@@ -62,7 +62,7 @@ export default function SessionList({
                 onClick={() => onSelect(session.chatSessionId)}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer border transition-all ${
                   isSelected
-                    ? "bg-zinc-900 border-zinc-850 text-white"
+                    ? "bg-zinc-900 border-zinc-800 text-white"
                     : "border-transparent hover:bg-zinc-900/40 text-zinc-400 hover:text-white"
                 }`}
               >

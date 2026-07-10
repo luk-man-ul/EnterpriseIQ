@@ -18,6 +18,22 @@ function ProtectedLayoutInner({
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Close mobile drawer on Escape key press
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
@@ -48,7 +64,7 @@ function ProtectedLayoutInner({
     navLinks.push({ name: "Users", href: "/app/admin/users" });
   }
 
-  const sidebarContent = (
+  const renderSidebar = (onLinkClick?: () => void) => (
     <div className="flex-1 flex flex-col justify-between p-6 bg-zinc-950 border-r border-zinc-800 text-white font-sans h-full">
       <div className="space-y-8">
         {/* Brand */}
@@ -67,9 +83,10 @@ function ProtectedLayoutInner({
               <Link
                 key={link.name}
                 href={link.href}
+                onClick={onLinkClick}
                 className={`text-xs font-semibold px-4 py-3 rounded-lg border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                   isActive
-                    ? "bg-zinc-950 bg-zinc-900 border-zinc-850 text-white"
+                    ? "bg-zinc-950 bg-zinc-900 border-zinc-800 text-white"
                     : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-900/40"
                 }`}
               >
@@ -113,7 +130,7 @@ function ProtectedLayoutInner({
       )}
 
       {/* Mobile Header Bar */}
-      <header className="lg:hidden flex items-center justify-between border-b border-zinc-850 bg-zinc-950 px-6 py-4 z-40 shrink-0">
+      <header className="lg:hidden flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-6 py-4 z-40 shrink-0">
         <div className="flex items-center space-x-3">
           <span className="text-lg font-bold tracking-tight">EnterpriseIQ</span>
         </div>
@@ -134,17 +151,18 @@ function ProtectedLayoutInner({
           onClick={() => setMobileMenuOpen(false)}
         >
           <div
+            aria-label="Navigation Drawer"
             className="w-64 h-full transform transition-transform"
             onClick={(e) => e.stopPropagation()}
           >
-            {sidebarContent}
+            {renderSidebar(() => setMobileMenuOpen(false))}
           </div>
         </div>
       )}
 
       {/* Desktop Persistent Sidebar */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 z-30 shrink-0">
-        {sidebarContent}
+        {renderSidebar()}
       </aside>
 
       {/* Layout Content wrapper */}

@@ -39,7 +39,7 @@ export default function ChatComposer({ loading, onSend }: ChatComposerProps) {
 
   return (
     <div className="w-full bg-zinc-950 border-t border-zinc-800 p-4 space-y-3 font-sans text-white">
-      <form onSubmit={handleSubmit} className="relative flex items-end gap-3 bg-zinc-900 border border-zinc-850 rounded-xl px-4 py-3">
+      <form onSubmit={handleSubmit} className="relative flex items-end gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
         <textarea
           rows={1}
           placeholder="Ask EnterpriseIQ a question..."

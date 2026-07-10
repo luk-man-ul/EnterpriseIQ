@@ -46,8 +46,8 @@ export default function MessageList({
             <div
               className={`rounded-2xl px-5 py-3.5 text-sm font-normal border leading-relaxed break-words whitespace-pre-wrap ${
                 isUser
-                  ? "bg-zinc-900 border-zinc-850 text-white"
-                  : "bg-zinc-950/60 border-zinc-850 text-zinc-300"
+                  ? "bg-zinc-900 border-zinc-800 text-white"
+                  : "bg-zinc-950/60 border-zinc-800 text-zinc-300"
               }`}
             >
               {msg.content}
@@ -65,7 +65,7 @@ export default function MessageList({
           <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 select-none">
             EnterpriseIQ
           </span>
-          <div className="rounded-2xl px-5 py-3.5 text-sm font-normal border leading-relaxed break-words whitespace-pre-wrap bg-zinc-950/60 border-zinc-850 text-zinc-300">
+          <div className="rounded-2xl px-5 py-3.5 text-sm font-normal border leading-relaxed break-words whitespace-pre-wrap bg-zinc-950/60 border-zinc-800 text-zinc-300">
             {currentTurnMessage || (streaming ? "Thinking..." : "")}
             {currentCitations.length > 0 && (
               <CitationList citations={currentCitations} />

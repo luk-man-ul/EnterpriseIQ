@@ -132,24 +132,6 @@ export default function DocumentDetails({
               {formatBytes(details.fileSize)}
             </span>
           </div>
-
-          <div>
-            <span className="block text-zinc-500 uppercase tracking-wider font-semibold mb-1">
-              Uploaded By (ID)
-            </span>
-            <span className="block text-white font-mono break-all">
-              {details.uploadedById}
-            </span>
-          </div>
-
-          <div>
-            <span className="block text-zinc-500 uppercase tracking-wider font-semibold mb-1">
-              Department ID
-            </span>
-            <span className="block text-white font-mono break-all">
-              {details.departmentId || "General (None)"}
-            </span>
-          </div>
         </div>
       )}
     </div>
