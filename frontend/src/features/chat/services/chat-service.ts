@@ -3,9 +3,10 @@ import { ApiSuccessResponse } from "../../../types/api-contracts";
 import { ChatSession, ChatMessage } from "../types/chat-types";
 
 export const chatService = {
-  async list(): Promise<ApiSuccessResponse<ChatSession[]>> {
+  async list(signal?: AbortSignal): Promise<ApiSuccessResponse<ChatSession[]>> {
     return requestWithAuth<ApiSuccessResponse<ChatSession[]>>("chat/sessions", {
       method: "GET",
+      signal,
     });
   },
 

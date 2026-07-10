@@ -1,9 +1,14 @@
 import { Document, DocumentStatus } from '@prisma/client';
+import { DocumentAccessContext } from './document-access-context.interface';
 
 export const DOCUMENT_REPOSITORY_TOKEN = 'IDocumentRepository';
 
 export interface IDocumentRepository {
-  findById(id: string): Promise<Document | null>;
+  findByIdUnscoped(id: string): Promise<Document | null>;
+  findAuthorizedById(
+    id: string,
+    accessContext: DocumentAccessContext,
+  ): Promise<Document | null>;
   findByHash(contentHash: string): Promise<Document | null>;
   createWithPermission(
     documentData: Omit<
@@ -12,12 +17,15 @@ export interface IDocumentRepository {
     >,
     permissionData: { departmentId?: string; roleId?: string },
   ): Promise<Document>;
-  findMany(params: {
-    skip: number;
-    take: number;
-    orderBy: { [key: string]: 'asc' | 'desc' };
-    where?: { departmentId?: string };
-  }): Promise<{ documents: Document[]; totalCount: number }>;
+  findAuthorizedMany(
+    params: {
+      skip: number;
+      take: number;
+      orderBy: { [key: string]: 'asc' | 'desc' };
+      departmentId?: string;
+    },
+    accessContext: DocumentAccessContext,
+  ): Promise<{ documents: Document[]; totalCount: number }>;
   delete(id: string): Promise<void>;
   updateStatus(id: string, status: DocumentStatus): Promise<Document>;
 }

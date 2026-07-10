@@ -62,7 +62,7 @@ export class IngestionOrchestrator {
   async ingest(documentId: string): Promise<void> {
     this.logger.log(`Beginning document ingestion process for: ${documentId}`);
 
-    const document = await this.documentRepository.findById(documentId);
+    const document = await this.documentRepository.findByIdUnscoped(documentId);
     if (!document) {
       this.logger.error(`Document metadata not found in DB: ${documentId}`);
       return;

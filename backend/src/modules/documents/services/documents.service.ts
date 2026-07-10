@@ -3,9 +3,10 @@ import {
   Inject,
   ConflictException,
   NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { Document, DocumentStatus } from '@prisma/client';
+import { Document, DocumentStatus, UserRole } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -15,6 +16,7 @@ import type { IStorageProvider } from '../domain/interfaces/storage-provider.int
 import { STORAGE_PROVIDER_TOKEN } from '../domain/interfaces/storage-provider.interface';
 import { DocumentValidationService } from './document-validation.service';
 import { ListDocumentsDto } from '../dto/list-documents.dto';
+import { DocumentAccessContext } from '../domain/interfaces/document-access-context.interface';
 
 @Injectable()
 export class DocumentsService {
@@ -112,21 +114,31 @@ export class DocumentsService {
     }
   }
 
-  async findMany(dto: ListDocumentsDto) {
+  async findMany(dto: ListDocumentsDto, accessContext: DocumentAccessContext) {
+    const isAdmin = accessContext.roleName === UserRole.Administrator;
+    if (
+      !isAdmin &&
+      dto.departmentId &&
+      dto.departmentId !== accessContext.departmentId
+    ) {
+      throw new BadRequestException('Unauthorized cross-department query.');
+    }
+
     const skip = (dto.page - 1) * dto.limit;
     const take = dto.limit;
 
     const orderBy = { [dto.sort]: dto.order };
-    const where = dto.departmentId
-      ? { departmentId: dto.departmentId }
-      : undefined;
 
-    const { documents, totalCount } = await this.documentRepository.findMany({
-      skip,
-      take,
-      orderBy,
-      where,
-    });
+    const { documents, totalCount } =
+      await this.documentRepository.findAuthorizedMany(
+        {
+          skip,
+          take,
+          orderBy,
+          departmentId: dto.departmentId,
+        },
+        accessContext,
+      );
 
     return {
       documents,
@@ -138,17 +150,34 @@ export class DocumentsService {
     };
   }
 
-  async findOne(id: string): Promise<Document> {
-    const document = await this.documentRepository.findById(id);
+  async findOne(
+    id: string,
+    accessContext: DocumentAccessContext,
+  ): Promise<Document> {
+    const document = await this.documentRepository.findAuthorizedById(
+      id,
+      accessContext,
+    );
     if (!document) {
       throw new NotFoundException(`Document with ID ${id} not found.`);
     }
     return document;
   }
 
-  async remove(id: string): Promise<void> {
-    const document = await this.documentRepository.findById(id);
+  async remove(
+    id: string,
+    accessContext: DocumentAccessContext,
+  ): Promise<void> {
+    const document = await this.documentRepository.findAuthorizedById(
+      id,
+      accessContext,
+    );
     if (!document) {
+      throw new NotFoundException(`Document with ID ${id} not found.`);
+    }
+
+    const isAdmin = accessContext.roleName === UserRole.Administrator;
+    if (!isAdmin && document.uploadedById !== accessContext.userId) {
       throw new NotFoundException(`Document with ID ${id} not found.`);
     }
 

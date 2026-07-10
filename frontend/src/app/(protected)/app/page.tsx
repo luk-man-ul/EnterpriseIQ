@@ -1,5 +1,5 @@
-import DocumentWorkspace from "../../../features/documents/components/document-workspace";
+import OverviewDashboard from "../../../features/dashboard/components/overview-dashboard";
 
 export default function AppPage() {
-  return <DocumentWorkspace />;
+  return <OverviewDashboard />;
 }

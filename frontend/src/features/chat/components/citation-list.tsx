@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { ChatCitation } from "../types/chat-types";
 
 interface CitationListProps {
@@ -57,6 +58,14 @@ export default function CitationList({ citations }: CitationListProps) {
               <span className="text-zinc-300">{selectedCitation.page}</span>
             </div>
           )}
+          <div className="pt-2 border-t border-zinc-900/60 mt-2">
+            <Link
+              href={`/app/documents?documentId=${encodeURIComponent(selectedCitation.documentId)}`}
+              className="inline-flex items-center text-[10px] font-bold text-zinc-400 hover:text-white transition-colors"
+            >
+              Open in Documents Workspace →
+            </Link>
+          </div>
         </div>
       )}
     </div>

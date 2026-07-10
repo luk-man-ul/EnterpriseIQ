@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
-import { DocumentStatus, Document } from '@prisma/client';
+import {
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { DocumentStatus, Document, UserRole } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DocumentsService } from './documents.service';
 import { DocumentValidationService } from './document-validation.service';
@@ -13,6 +17,8 @@ import {
   IStorageProvider,
   STORAGE_PROVIDER_TOKEN,
 } from '../domain/interfaces/storage-provider.interface';
+import { DocumentAccessContext } from '../domain/interfaces/document-access-context.interface';
+import { ListDocumentsDto } from '../dto/list-documents.dto';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -20,12 +26,27 @@ describe('DocumentsService', () => {
   let storageMock: jest.Mocked<IStorageProvider>;
   let eventEmitterMock: any;
 
+  const mockAccessContext: DocumentAccessContext = {
+    userId: 'user-uuid',
+    roleId: 'role-uuid',
+    departmentId: 'dept-uuid',
+    roleName: UserRole.Manager,
+  };
+
+  const adminAccessContext: DocumentAccessContext = {
+    userId: 'admin-uuid',
+    roleId: 'admin-role-uuid',
+    departmentId: 'admin-dept-uuid',
+    roleName: UserRole.Administrator,
+  };
+
   beforeEach(async () => {
     repositoryMock = {
-      findById: jest.fn(),
+      findByIdUnscoped: jest.fn(),
+      findAuthorizedById: jest.fn(),
       findByHash: jest.fn(),
       createWithPermission: jest.fn(),
-      findMany: jest.fn(),
+      findAuthorizedMany: jest.fn(),
       delete: jest.fn(),
       updateStatus: jest.fn(),
     };
@@ -153,36 +174,82 @@ describe('DocumentsService', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('should return document if found', async () => {
-      const doc = { id: 'doc-id', filename: 'test.pdf' } as Document;
-      const findByIdMock = repositoryMock.findById as jest.Mock;
-      findByIdMock.mockResolvedValue(doc);
+  describe('findMany', () => {
+    it('should allow same department query for non-admin', async () => {
+      const dto = new ListDocumentsDto();
+      dto.departmentId = 'dept-uuid';
+      repositoryMock.findAuthorizedMany.mockResolvedValue({
+        documents: [],
+        totalCount: 0,
+      });
 
-      const result = await service.findOne('doc-id');
-      expect(result).toBe(doc);
+      await service.findMany(dto, mockAccessContext);
+
+      expect(repositoryMock.findAuthorizedMany).toHaveBeenCalledWith(
+        expect.objectContaining({ departmentId: 'dept-uuid' }),
+        mockAccessContext,
+      );
     });
 
-    it('should throw NotFoundException if not found', async () => {
-      const findByIdMock = repositoryMock.findById as jest.Mock;
-      findByIdMock.mockResolvedValue(null);
+    it('should throw BadRequestException if non-admin queries another departmentId', async () => {
+      const dto = new ListDocumentsDto();
+      dto.departmentId = 'other-dept-uuid';
 
-      await expect(service.findOne('non-existent')).rejects.toThrow(
-        NotFoundException,
+      await expect(service.findMany(dto, mockAccessContext)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repositoryMock.findAuthorizedMany).not.toHaveBeenCalled();
+    });
+
+    it('should allow admin to filter by any departmentId', async () => {
+      const dto = new ListDocumentsDto();
+      dto.departmentId = 'other-dept-uuid';
+      repositoryMock.findAuthorizedMany.mockResolvedValue({
+        documents: [],
+        totalCount: 0,
+      });
+
+      await service.findMany(dto, adminAccessContext);
+
+      expect(repositoryMock.findAuthorizedMany).toHaveBeenCalledWith(
+        expect.objectContaining({ departmentId: 'other-dept-uuid' }),
+        adminAccessContext,
       );
     });
   });
 
+  describe('findOne', () => {
+    it('should return document if authorized', async () => {
+      const doc = { id: 'doc-id', filename: 'test.pdf' } as Document;
+      repositoryMock.findAuthorizedById.mockResolvedValue(doc);
+
+      const result = await service.findOne('doc-id', mockAccessContext);
+      expect(result).toBe(doc);
+      expect(repositoryMock.findAuthorizedById).toHaveBeenCalledWith(
+        'doc-id',
+        mockAccessContext,
+      );
+    });
+
+    it('should throw NotFoundException if not authorized or not found', async () => {
+      repositoryMock.findAuthorizedById.mockResolvedValue(null);
+
+      await expect(
+        service.findOne('non-existent', mockAccessContext),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('remove', () => {
-    it('should delete database record first then storage file', async () => {
+    it('should allow Admin to delete any document', async () => {
       const doc = {
         id: 'doc-id',
+        uploadedById: 'another-user',
         filePath: 'storage/uploads/file.pdf',
       } as Document;
-      const findByIdMock = repositoryMock.findById as jest.Mock;
-      findByIdMock.mockResolvedValue(doc);
+      repositoryMock.findAuthorizedById.mockResolvedValue(doc);
 
-      await service.remove('doc-id');
+      await service.remove('doc-id', adminAccessContext);
 
       expect(repositoryMock.delete).toHaveBeenCalledWith('doc-id');
       expect(storageMock.deleteFile).toHaveBeenCalledWith(
@@ -190,13 +257,43 @@ describe('DocumentsService', () => {
       );
     });
 
-    it('should throw NotFoundException if document not found', async () => {
-      const findByIdMock = repositoryMock.findById as jest.Mock;
-      findByIdMock.mockResolvedValue(null);
+    it('should allow Manager to delete their own uploaded document', async () => {
+      const doc = {
+        id: 'doc-id',
+        uploadedById: 'user-uuid',
+        filePath: 'storage/uploads/file.pdf',
+      } as Document;
+      repositoryMock.findAuthorizedById.mockResolvedValue(doc);
 
-      await expect(service.remove('non-existent')).rejects.toThrow(
+      await service.remove('doc-id', mockAccessContext);
+
+      expect(repositoryMock.delete).toHaveBeenCalledWith('doc-id');
+      expect(storageMock.deleteFile).toHaveBeenCalledWith(
+        'storage/uploads/file.pdf',
+      );
+    });
+
+    it("should deny Manager to delete another user's document", async () => {
+      const doc = {
+        id: 'doc-id',
+        uploadedById: 'another-user',
+        filePath: 'storage/uploads/file.pdf',
+      } as Document;
+      repositoryMock.findAuthorizedById.mockResolvedValue(doc);
+
+      await expect(service.remove('doc-id', mockAccessContext)).rejects.toThrow(
         NotFoundException,
       );
+      expect(repositoryMock.delete).not.toHaveBeenCalled();
+      expect(storageMock.deleteFile).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if document not found for read', async () => {
+      repositoryMock.findAuthorizedById.mockResolvedValue(null);
+
+      await expect(
+        service.remove('non-existent', mockAccessContext),
+      ).rejects.toThrow(NotFoundException);
       expect(repositoryMock.delete).not.toHaveBeenCalled();
       expect(storageMock.deleteFile).not.toHaveBeenCalled();
     });

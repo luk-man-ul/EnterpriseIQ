@@ -24,6 +24,7 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { DocumentsService } from '../services/documents.service';
 import { UploadDocumentDto } from '../dto/upload-document.dto';
 import { ListDocumentsDto } from '../dto/list-documents.dto';
+import { DocumentAccessContext } from '../domain/interfaces/document-access-context.interface';
 
 interface IExpressUser {
   userId: string;
@@ -82,9 +83,14 @@ export class DocumentsController {
   }
 
   @Get()
-  async findAll(@Query() query: ListDocumentsDto) {
-    const { documents, pagination } =
-      await this.documentsService.findMany(query);
+  async findAll(@Query() query: ListDocumentsDto, @Req() req: Request) {
+    const user = req.user as IExpressUser;
+    const accessContext = this.mapAccessContext(user);
+
+    const { documents, pagination } = await this.documentsService.findMany(
+      query,
+      accessContext,
+    );
 
     const mappedDocs = documents.map((doc) => ({
       documentId: doc.id,
@@ -105,8 +111,11 @@ export class DocumentsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    const doc = await this.documentsService.findOne(id);
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
+    const user = req.user as IExpressUser;
+    const accessContext = this.mapAccessContext(user);
+
+    const doc = await this.documentsService.findOne(id, accessContext);
     const docWithPerms = doc as DocumentWithPermissions;
     const permission = docWithPerms.permissions?.[0];
     const departmentId = permission?.departmentId || null;
@@ -127,8 +136,11 @@ export class DocumentsController {
   }
 
   @Get(':id/status')
-  async getStatus(@Param('id', ParseUUIDPipe) id: string) {
-    const doc = await this.documentsService.findOne(id);
+  async getStatus(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
+    const user = req.user as IExpressUser;
+    const accessContext = this.mapAccessContext(user);
+
+    const doc = await this.documentsService.findOne(id, accessContext);
 
     return {
       success: true,
@@ -143,14 +155,26 @@ export class DocumentsController {
 
   @Delete(':id')
   @Roles(UserRole.Administrator, UserRole.Manager)
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    await this.documentsService.remove(id);
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
+    const user = req.user as IExpressUser;
+    const accessContext = this.mapAccessContext(user);
+
+    await this.documentsService.remove(id, accessContext);
 
     return {
       success: true,
       message: 'Document and chunks successfully deleted.',
       data: {},
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  private mapAccessContext(user: IExpressUser): DocumentAccessContext {
+    return {
+      userId: user.userId,
+      roleId: user.roleId,
+      departmentId: user.departmentId,
+      roleName: user.roleName as UserRole,
     };
   }
 }

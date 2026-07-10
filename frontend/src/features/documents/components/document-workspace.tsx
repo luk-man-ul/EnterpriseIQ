@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "../../../hooks/use-auth";
 import { documentService } from "../services/document-service";
 import { documentCapabilityService } from "../services/document-capability-service";
@@ -17,6 +18,8 @@ import { ApiError } from "../../../services/api-transport";
 
 export default function DocumentWorkspace() {
   const { user, status } = useAuth();
+  const searchParams = useSearchParams();
+  const docIdParam = searchParams?.get("documentId");
 
   // Catalog state
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -31,6 +34,17 @@ export default function DocumentWorkspace() {
 
   // Selected document context
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !docIdParam) return;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(docIdParam)) {
+      Promise.resolve().then(() => {
+        setSelectedDocumentId(docIdParam);
+      });
+    }
+  }, [status, docIdParam]);
 
   // Deletion context
   const [deleteTarget, setDeleteTarget] = useState<DocumentListItem | null>(null);

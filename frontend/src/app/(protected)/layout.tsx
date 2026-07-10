@@ -55,7 +55,8 @@ function ProtectedLayoutInner({
   }
 
   const navLinks = [
-    { name: "Documents", href: "/app" },
+    { name: "Overview", href: "/app" },
+    { name: "Documents", href: "/app/documents" },
     { name: "Search", href: "/app/search" },
     { name: "Chat", href: "/app/chat" },
   ];

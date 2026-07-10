@@ -11,6 +11,7 @@ import MessageList from "./message-list";
 import ChatComposer from "./chat-composer";
 import DeleteSessionDialog from "./delete-session-dialog";
 import { ApiError } from "../../../services/api-transport";
+import { handoffStore } from "../../dashboard/utils/handoff-store";
 
 export default function ChatWorkspace() {
   const { status } = useAuth();
@@ -110,7 +111,7 @@ export default function ChatWorkspace() {
   }, []);
 
   // 3. Handle message submit (Stream trigger)
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, overrideSessionId?: string | null) => {
     // 1. Cancel previous stream if active
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
@@ -134,10 +135,12 @@ export default function ChatWorkspace() {
     let isCompleteReceived = false;
     let newSessionId: string | null = null;
 
+    const finalSessionId = overrideSessionId !== undefined ? overrideSessionId : activeSessionId;
+
     try {
       const bodyStream = await chatStreamService.connectStream(
         content,
-        activeSessionId || undefined,
+        finalSessionId ?? undefined,
         abortController.signal
       );
 
@@ -188,8 +191,9 @@ export default function ChatWorkspace() {
           fetchSessionsList();
         } else {
           // Re-fetch history for active session to ensure database alignment
-          if (activeSessionId) {
-            const hist = await chatService.getHistory(activeSessionId);
+          const resolvedSessionId = finalSessionId;
+          if (resolvedSessionId) {
+            const hist = await chatService.getHistory(resolvedSessionId);
             setMessages(hist.data);
           }
         }
@@ -216,6 +220,29 @@ export default function ChatWorkspace() {
     }
   };
 
+  const handleNewChat = () => {
+    if (streaming) return;
+    setActiveSessionId(null);
+    setMessages([]);
+    setStreamError(null);
+    setCurrentTurnMessage(null);
+    setCurrentCitations([]);
+  };
+
+  // 2b. Auto-consume transient search query handoff
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const query = handoffStore.consumeMessage();
+    if (query) {
+      Promise.resolve().then(() => {
+        handleNewChat();
+        handleSendMessage(query, null);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   const handleCancelGeneration = () => {
     abortControllerRef.current?.abort();
     setStreaming(false);
@@ -226,15 +253,6 @@ export default function ChatWorkspace() {
   const handleSelectSession = (id: string) => {
     if (streaming) return; // Prevent selection changes during active streams
     setActiveSessionId(id);
-  };
-
-  const handleNewChat = () => {
-    if (streaming) return;
-    setActiveSessionId(null);
-    setMessages([]);
-    setStreamError(null);
-    setCurrentTurnMessage(null);
-    setCurrentCitations([]);
   };
 
   const handleDeleteSuccess = () => {

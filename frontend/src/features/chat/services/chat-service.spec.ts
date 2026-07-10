@@ -58,4 +58,19 @@ describe("Chat REST Service Unit Tests", () => {
 
     await expect(chatService.list()).rejects.toThrow(TypeError);
   });
+
+  it("should forward AbortSignal when provided to list", async () => {
+    vi.mocked(requestWithAuth).mockResolvedValue({
+      success: true,
+      data: [],
+    });
+
+    const controller = new AbortController();
+    await chatService.list(controller.signal);
+
+    expect(requestWithAuth).toHaveBeenCalledWith("chat/sessions", {
+      method: "GET",
+      signal: controller.signal,
+    });
+  });
 });

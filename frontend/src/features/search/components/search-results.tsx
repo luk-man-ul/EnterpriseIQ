@@ -1,14 +1,34 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SearchResultItem } from "../types/search-types";
+import { handoffStore } from "../../dashboard/utils/handoff-store";
 
 interface SearchResultsProps {
   results: SearchResultItem[];
   searched: boolean;
+  lastSubmittedQuery: string;
 }
 
-export default function SearchResults({ results, searched }: SearchResultsProps) {
+export default function SearchResults({ results, searched, lastSubmittedQuery }: SearchResultsProps) {
+  const router = useRouter();
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+
+  const handleAskAI = () => {
+    setHandoffError(null);
+    const res = handoffStore.setMessage(lastSubmittedQuery);
+    if (res.accepted) {
+      router.push("/app/chat");
+    } else {
+      if (res.reason === "too_long") {
+        setHandoffError("Your search query exceeds the 500-character limit and cannot be sent to the AI.");
+      } else {
+        setHandoffError("Search query is empty and cannot be sent to the AI.");
+      }
+    }
+  };
+
   if (!searched) {
     return (
       <div className="w-full text-center py-12 text-zinc-500 text-xs font-sans">
@@ -27,9 +47,23 @@ export default function SearchResults({ results, searched }: SearchResultsProps)
 
   return (
     <div className="w-full space-y-4 font-sans text-white">
-      <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-        Search Results ({results.length})
-      </h3>
+      {handoffError && (
+        <div className="rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-2.5 text-xs text-red-400">
+          {handoffError}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          Search Results ({results.length})
+        </h3>
+        <button
+          onClick={handleAskAI}
+          className="text-xs font-semibold text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white shrink-0"
+        >
+          Ask AI about this search
+        </button>
+      </div>
 
       <div className="space-y-4">
         {results.map((item, idx) => {
@@ -63,3 +97,4 @@ export default function SearchResults({ results, searched }: SearchResultsProps)
     </div>
   );
 }
+

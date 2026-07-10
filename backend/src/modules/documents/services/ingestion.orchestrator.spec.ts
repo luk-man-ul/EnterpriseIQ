@@ -23,7 +23,7 @@ describe('IngestionOrchestrator', () => {
 
   beforeEach(async () => {
     documentRepositoryMock = {
-      findById: jest.fn(),
+      findByIdUnscoped: jest.fn(),
       updateStatus: jest.fn(),
     };
 
@@ -77,7 +77,7 @@ describe('IngestionOrchestrator', () => {
       tags: ['test'],
     } as Document;
 
-    documentRepositoryMock.findById.mockResolvedValue(mockDocument);
+    documentRepositoryMock.findByIdUnscoped.mockResolvedValue(mockDocument);
     storageProviderMock.getFileBuffer.mockResolvedValue(
       Buffer.from('hello plain text'),
     );
@@ -118,7 +118,7 @@ describe('IngestionOrchestrator', () => {
       filePath: 'storage/uploads/bad.pdf',
     } as Document;
 
-    documentRepositoryMock.findById.mockResolvedValue(mockDocument);
+    documentRepositoryMock.findByIdUnscoped.mockResolvedValue(mockDocument);
     storageProviderMock.getFileBuffer.mockResolvedValue(Buffer.from('corrupt'));
     pdfParserMock.parse.mockRejectedValue(new Error('Corrupt PDF metadata'));
 

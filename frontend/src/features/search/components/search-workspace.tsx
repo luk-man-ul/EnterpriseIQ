@@ -11,6 +11,7 @@ export default function SearchWorkspace() {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [lastSubmittedQuery, setLastSubmittedQuery] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -22,6 +23,7 @@ export default function SearchWorkspace() {
   }, []);
 
   const handleSearchSubmit = async (params: SearchRequest) => {
+    setLastSubmittedQuery(params.query);
     // Abort ongoing query to prevent race conditions
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
@@ -72,7 +74,7 @@ export default function SearchWorkspace() {
         </div>
       )}
 
-      <SearchResults results={results} searched={searched} />
+      <SearchResults results={results} searched={searched} lastSubmittedQuery={lastSubmittedQuery} />
     </div>
   );
 }
